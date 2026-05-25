@@ -1,0 +1,3 @@
+Billing Start,Billing End,Meter ID,Usage (kWh),Account Number,Cost
+2026-03-01,2026-03-31,MT-1001,5200,AC-812,750.00
+2026-04-01,2026-04-30,MT-1002,4700,AC-812,680.00

@@ -1,0 +1,4 @@
+Expense Type,Trip Start,Trip End,Origin,Destination,Distance,Amount,Currency
+Flight,2026-02-10,2026-02-10,JFK,LHR,5567,1200,USD
+Hotel,2026-02-10,2026-02-15,London,London,,600,USD
+Ground transport,2026-02-15,2026-02-15,LHR,LGW,132,50,USD
