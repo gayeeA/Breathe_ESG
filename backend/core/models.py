@@ -66,7 +66,7 @@ class NormalizedRecord(models.Model):
     source = models.ForeignKey(Source, on_delete=models.SET_NULL, null=True, related_name='records')
     import_batch = models.ForeignKey(ImportBatch, on_delete=models.SET_NULL, null=True, related_name='records')
     raw_payload = models.JSONField(default=dict)
-
+    rejection_reason = models.TextField(blank=True, null=True)
     record_type = models.CharField(max_length=32)
     category = models.CharField(max_length=128)
     emission_scope = models.CharField(max_length=16, choices=EMISSION_SCOPE_CHOICES)
