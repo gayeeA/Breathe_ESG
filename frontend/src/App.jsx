@@ -7,44 +7,52 @@ const SOURCE_OPTIONS = [
   { value: 'travel-corporate', label: 'Corporate travel export' },
 ];
 
+// ✅ FIXED: must be string
+const API_BASE = "https://breathe-backend-78xx.onrender.com";
+
 function App() {
   const [tenant, setTenant] = useState('acme');
   const [sourceType, setSourceType] = useState('sap-fuel');
   const [file, setFile] = useState(null);
-  const [message, setMessage] = useState('');
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
-const [statusFilter, setStatusFilter] = useState('pending_review');
-const [typeFilter, setTypeFilter] = useState('');
-const [toasts, setToasts] = useState([]);
+
+  const [statusFilter, setStatusFilter] = useState('pending_review');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [toasts, setToasts] = useState([]);
+
   useEffect(() => {
     fetchRecords();
   }, []);
 
+  // ✅ FETCH RECORDS (UPDATED)
   const fetchRecords = async () => {
-  setLoading(true);
-  try {
-    let url = `/api/records/?status=${statusFilter}`;
+    setLoading(true);
+    try {
+      let url = `${API_BASE}/api/records/?status=${statusFilter}`;
 
-    if (typeFilter) {
-      url += `&record_type=${typeFilter}`;
+      if (typeFilter) {
+        url += `&record_type=${typeFilter}`;
+      }
+
+      const response = await fetch(url);
+      const data = await response.json();
+      const recordList = Array.isArray(data) ? data : data.results || [];
+
+      setRecords(recordList);
+    } catch (error) {
+      showToast('Failed to load records', 'error');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const response = await fetch(url);
-    const data = await response.json();
-    const recordList = Array.isArray(data) ? data : data.results || [];
-    setRecords(recordList);
-  } catch (error) {
-    showToast('Upload failed', 'error');
-  } finally {
-    setLoading(false);
-  }
-};
-
+  // ✅ UPLOAD
   const handleUpload = async (event) => {
     event.preventDefault();
+
     if (!file) {
-      showToast('Please choose a file first.');
+      showToast('Please choose a file first', 'error');
       return;
     }
 
@@ -54,180 +62,168 @@ const [toasts, setToasts] = useState([]);
     formData.append('file', file);
 
     setLoading(true);
-    setMessage('Uploading...');
+
     try {
-      const res = await fetch('/api/imports/upload/', {
+      const res = await fetch(`${API_BASE}/api/imports/upload/`, {
         method: 'POST',
         body: formData,
       });
+
       const result = await res.json();
+
       if (!res.ok) {
         showToast(result.detail || 'Import failed', 'error');
       } else {
-       showToast(`Imported ${result.imported} rows`, 'success');
+        showToast(`Imported ${result.imported} rows`, 'success');
         fetchRecords();
       }
     } catch (error) {
-      showToast(result.detail || 'Import failed', 'error');
+      showToast('Upload failed', 'error');
     } finally {
       setLoading(false);
     }
   };
-const rejectRecord = async (id) => {
-  const reason = prompt("Enter rejection reason:");
 
-  if (!reason) return;
+  // ✅ REJECT
+  const rejectRecord = async (id) => {
+    const reason = prompt("Enter rejection reason:");
+    if (!reason) return;
 
-  try {
-    const res = await fetch(`/api/records/${id}/reject/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ reason }),
-    });
+    try {
+      const res = await fetch(`${API_BASE}/api/records/${id}/reject/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
 
-    if (res.ok) {
-      fetchRecords();
-      fetchAnalytics(); // 🔥 update analytics
+      if (res.ok) {
+        showToast('Record rejected', 'success');
+        fetchRecords();
+      }
+    } catch {
+      showToast('Reject failed', 'error');
     }
-  } catch (error) {
-    
-  }
-};
-const approveRecord = async (id) => {
-  try {
-    const res = await fetch(`/api/records/${id}/approve/`, { method: 'POST' });
-    if (res.ok) {
-      fetchRecords();
-      fetchAnalytics(); // 🔥 important
+  };
+
+  // ✅ APPROVE
+  const approveRecord = async (id) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/records/${id}/approve/`, {
+        method: 'POST',
+      });
+
+      if (res.ok) {
+        showToast('Record approved', 'success');
+        fetchRecords();
+      }
+    } catch {
+      showToast('Approve failed', 'error');
     }
-  } catch {
-    setMessage('Approve failed.');
-  }
-};
-const showToast = (message, type = 'success') => {
-  const id = Date.now();
+  };
 
-  setToasts((prev) => [...prev, { id, message, type }]);
+  // ✅ TOAST
+  const showToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
 
-  setTimeout(() => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, 3000); // auto remove
-};
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  };
+
   return (
     <div className="shell">
       <header className="header">
         <h1>Breathe ESG import review</h1>
-        <p>Upload realistic SAP, electricity, or travel exports and review the normalized rows before audit.</p>
       </header>
 
+      {/* Upload */}
       <section className="upload-panel">
         <h2>Import source data</h2>
+
         <form onSubmit={handleUpload}>
-          <label>
-            Tenant slug
-            <input value={tenant} onChange={(e) => setTenant(e.target.value)} />
-          </label>
-          <label>
-            Source type
-            <select value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
-              {SOURCE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            File upload
-            <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          </label>
-          <button type="submit" disabled={loading}>Upload to ingest</button>
-          <div className="message">{message}</div>
+          <input value={tenant} onChange={(e) => setTenant(e.target.value)} />
+
+          <select value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
+            {SOURCE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+
+          <input type="file" onChange={(e) => setFile(e.target.files?.[0])} />
+
+          <button type="submit">Upload</button>
         </form>
       </section>
 
+      {/* Filters */}
       <section className="review-panel">
         <div className="filters">
-  <label>
-    Status:
-    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-      <option value="pending_review">Pending</option>
-      <option value="approved">Approved</option>
-      <option value="rejected">Rejected</option>
-      <option value="">All</option>
-    </select>
-  </label>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="pending_review">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="">All</option>
+          </select>
 
-  <label>
-    Type:
-    <input
-      placeholder="e.g. fuel, electricity"
-      value={typeFilter}
-      onChange={(e) => setTypeFilter(e.target.value)}
-    />
-  </label>
+          <input
+            placeholder="type filter"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+          />
 
-  <button onClick={fetchRecords}>Apply Filter</button>
-</div>
-        <h2>Pending review</h2>
-        {loading ? (
-          <p>Loading...</p>
-        ) : records.length ? (
+          <button onClick={fetchRecords}>Apply</button>
+        </div>
+
+        {/* Table */}
+        {loading ? <p>Loading...</p> : (
           <table>
             <thead>
               <tr>
                 <th>ID</th>
                 <th>Type</th>
                 <th>Scope</th>
-                <th>Period</th>
-                <th>Quantity</th>
-                <th>Emissions</th>
-                <th>Suspicious</th>
                 <th>Approve</th>
                 <th>Reject</th>
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody>
-              {records.map((record) => (
-                <tr key={record.id} className={record.suspicious_reason ? 'suspicious' : ''}>
-                  <td>{record.id}</td>
-                  <td>{record.record_type}</td>
-                  <td>{record.emission_scope}</td>
-                  <td>{record.activity_start} → {record.activity_end}</td>
-                  <td>{record.normalized_quantity} {record.normalized_unit}</td>
-                  <td>{record.emissions_kg_co2e.toFixed(1)} kg CO₂e</td>
-                  <td>{record.suspicious_reason || '—'}</td>
-                  <td>
-  {record.status === 'pending_review' ? (
-    <button onClick={() => approveRecord(record.id)}>Approve</button>
-  ) : (
-    '—'
-  )}
-</td>
 
-<td>
-  {record.status === 'pending_review' ? (
-    <button onClick={() => rejectRecord(record.id)}>Reject</button>
-  ) : (
-    '—'
-  )}
-</td>
-<td>
-  {record.status === 'approved' && <span className="badge green">Approved</span>}
-  {record.status === 'rejected' && <span className="badge red">Rejected</span>}
-  {record.status === 'pending_review' && <span className="badge yellow">Pending</span>}
-</td>
+            <tbody>
+              {records.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.id}</td>
+                  <td>{r.record_type}</td>
+                  <td>{r.emission_scope}</td>
+
+                  <td>
+                    {r.status === 'pending_review'
+                      ? <button onClick={() => approveRecord(r.id)}>Approve</button>
+                      : '—'}
+                  </td>
+
+                  <td>
+                    {r.status === 'pending_review'
+                      ? <button onClick={() => rejectRecord(r.id)}>Reject</button>
+                      : '—'}
+                  </td>
+
+                  <td>{r.status}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : (
-          <p>No pending records yet.</p>
         )}
       </section>
+
+      {/* Toast UI */}
+      <div className="toast-container">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast ${t.type}`}>
+            {t.message}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
